@@ -1,0 +1,623 @@
+﻿# ==============================================================================
+# AUDITABLE AI AGENT LOOP FOR EMPIRICAL ECONOMICS:
+# MASTER PIPELINE CONFIGURATION
+# ==============================================================================
+#
+# Purpose:
+# This file serves as the single source of truth for the execute_master_pipeline
+# orchestrator. It defines the exact data schemas, temporal partitions, LLM
+# agent constraints, immutable evaluator parameters, and post-search registries
+# required to replicate the findings of Shin (2026).
+#
+# Note:
+# - The manuscript uses `prepare.R` and `train.R`.
+# - `prepare.py` and `train.py` below are optional Python-port path placeholders.
+# - Any field marked "unspecified in manuscript" is a rational placeholder or
+#   implementation-side guess, included only to prevent ambiguity.
+# ==============================================================================
+
+# ==============================================================================
+# ARTIFACT PATHS AND PROJECT LAYOUT
+# ==============================================================================
+artifact_paths:
+  working_directory: "./auditable_agent_loop_project"  # unspecified in manuscript
+  program_md_path: "program.md"
+  prepare_r_path: "prepare.R"
+  train_r_path: "train.R"
+  prepare_py_path: "prepare.py"  # Python port placeholder; unspecified in manuscript
+  train_py_path: "train.py"  # Python port placeholder; unspecified in manuscript
+  results_tsv_path: "results.tsv"
+  run_log_path: "run.log"  # implied by contract
+  run_sh_path: "run.sh"  # outer harness path; unspecified in manuscript
+  original_search_sample_path: "data/H1_gdp.csv"  # exact filename stated in appendix
+  spf_raw_source_path: "data/spf_raw.csv"  # local filename placeholder; unspecified in manuscript
+  eurostat_gdp_source_path: "data/eurostat_gdp.csv"  # local filename placeholder; unspecified in manuscript
+  independent_full_dataset_path: "data/full_independent_dataset.csv"  # researcher-side placeholder; unspecified in manuscript
+  original_program_reference_path: "original_program/R/"
+  original_paper_markdown_path: "/original_paper/DiebodShinEgalitarianLasso.md"
+
+# ==============================================================================
+# DISCOVERY-VISIBLE SEARCH PROTOCOL
+# ==============================================================================
+search_protocol:
+  agent_specification:
+    coding_assistant: "Claude Code"
+    model_family: "Opus 4.6"
+    thinking_effort: "default"
+    temperature: null  # unspecified in manuscript
+    top_p: null  # unspecified in manuscript
+    api_key_env_var: "ANTHROPIC_API_KEY"  # local deployment placeholder; unspecified in manuscript
+    internet_access_policy: null  # unspecified in manuscript; paper discusses disabling as a safeguard
+    filesystem_permission_policy: null  # unspecified in manuscript
+  run_design:
+    independent_runs: 3
+    fresh_agent_each_run: true
+    starting_method: "simple average"
+    search_budget_target_K: 200
+    search_budget_enforcement: "soft cap; outer harness counts rows in results.tsv"
+    reported_realized_experiments:
+      run_1: 232
+      run_2: 228
+      run_3: 201
+    reported_keep_counts:
+      run_1: 42
+      run_2: 61
+      run_3: 46
+    reported_discard_counts:
+      run_1: 188
+      run_2: 164
+      run_3: 152
+    reported_crash_counts:
+      run_1: 2
+      run_2: 3
+      run_3: 3
+    timeout_limit_minutes: 30.0
+    warmup_calls: 1
+    sequential_execution_only: true  # rational placeholder; unspecified in manuscript
+    keep_rule: "keep if RMSE improves; otherwise revert to current best"
+    log_before_keep_or_revert: true
+    branch_prefix: "autoresearch/"
+  audit_infrastructure:
+    architecture: "Four-file architecture: program.md, train.R, prepare.R, results.tsv"
+    version_control: "Git"
+    best_script_symbol: "tau_best"
+    global_optimum_symbol: "tau_star"
+    bounded_search_optimum_symbol: "tau_hat_K"
+    formal_objective: "minimize evaluator score S(tau; D^S)"
+    log_record_symbol: "L_K"
+
+# ==============================================================================
+# DATA INPUTS
+# ==============================================================================
+data_inputs:
+  spf_panel_wide:
+    object_name: "df_spf_panel_wide"
+    description: "Aligned wide forecaster panel derived from ECB SPF microdata"
+    date_column: "date"
+    date_format: "YYYYQq"
+    row_semantics: "Evaluation/target quarter aligned to realized GDP growth"
+    K_forecasters: 23
+    forecaster_columns_pattern: "forecaster_01 ... forecaster_23"
+    dtype_forecaster_columns: "Float64/nullable"
+    missing_values_allowed_pre_imputation: true
+    source_is_raw_microdata: false
+    raw_microdata_extraction_required: true  # implied by study design; not explicit in manuscript
+    identity_reconciliation_required: true  # implied by wide fixed-K panel; not explicit in manuscript
+    search_sample_exact_source: "verbatim copy from original H1_gdp.csv for 1999Q3-2016Q4"
+    holdout_extension_source: "ECB SPF extraction for 2017Q1-2025Q4"
+    independent_full_rebuild_source: "ECB SPF extraction for all rows"
+  gdp_target_series:
+    object_name: "df_gdp_target_series"
+    description: "Aligned realized year-on-year euro area real GDP growth series"
+    date_column: "date"
+    value_column: "real_gdp_growth_yoy"
+    dtype_value_column: "Float64"
+    source_table: "Eurostat namq_10_gdp"
+    series_concept: "chain-linked volumes, seasonally and calendar adjusted"  # from appendix
+    target_variable_role: "realized y_t"
+    search_sample_exact_source: "verbatim original H1_gdp.csv for 1999Q3-2016Q4"
+    holdout_extension_source: "Eurostat extraction for 2017Q1-2025Q4"
+    independent_full_rebuild_source: "Eurostat extraction for all rows"
+    vintage_control: "researcher must document vintage used"
+  data_processing_rules:
+    interior_gap_imputation: "linear interpolation"
+    trailing_gap_imputation: "cross-sectional mean"
+    inactive_forecaster_imputation: "cross-sectional mean"
+    quarter_alignment_required: true
+    date_uniqueness_required: true
+    strict_chronological_order_required: true
+
+# ==============================================================================
+# SAMPLE DESIGN AND PARTITIONING
+# ==============================================================================
+sample_design:
+  full_study_panel_rows: 106  # 70 original rows + 36 holdout rows
+  search_sample:
+    start: "1999Q3"
+    end: "2016Q4"
+    total_rows: 70
+    evaluation_periods_scored: 65
+    evaluation_call_range_t:
+      start: 5
+      end: 70
+    evaluation_score_range_t:
+      start: 6
+      end: 70
+  holdout_sample:
+    start: "2017Q1"
+    end: "2025Q4"
+    quarters: 36
+  holdout_excluding_covid:
+    quarters: 32
+    excluded_quarters:
+      - "2020Q1"
+      - "2020Q2"
+      - "2020Q3"
+      - "2020Q4"
+  data_partition_symbol: "D = (D^S, D^H)"
+  holdout_visibility_during_search: "not present in agent workspace"
+
+# ==============================================================================
+# IMMUTABLE EVALUATOR INPUTS: DATA AND LOGIC IN prepare.R / prepare.py
+# ==============================================================================
+prepare_script_data:
+  manuscript_filename: "prepare.R"
+  python_port_filename: "prepare.py"  # Python port placeholder; unspecified in manuscript
+  immutable: true
+  editable_by_agent: false
+  loads_search_sample_only_during_discovery: true
+  holdout_loaded_during_discovery: false
+  rolling_origin_evaluation: true
+  no_lookahead_enforced: true
+  rolling_window_W: 20
+  K_forecasters: 23
+  warmup_call_role: "first call is warm-up only"
+  evaluator_calls_total: 66
+  scored_periods_total: 65
+  call_index_range_t:
+    start: 5
+    end: 70
+  score_index_range_t:
+    start: 6
+    end: 70
+  score_metric: "RMSE"
+  relative_metric_reference: "simple average"
+  info_object_fields:
+    X_train: "rolling window training forecasts [max(1,t-w):(t-1), 23]"
+    y_train: "corresponding actuals"
+    X_history: "full history forecasts [1:(t-1), 23]"
+    y_history: "full history actuals"
+    x_new: "current period forecasts [23]"
+    lambda_grid: "200-point lambda grid from exp(15) to exp(-15)"
+    lambda_grid2: "second 200-point lambda grid from exp(15) to exp(-15)"
+    t: "current time index"
+    w: "window size (20)"
+  lambda_grid_specification:
+    grid_points: 200
+    log_lambda_start: 15.0
+    log_lambda_end: -15.0
+    construction_rule: "exp(linear grid from 15 to -15 with 200 points)"  # implied by contract
+  helper_functions_in_scope_from_prepare:
+    - "pelasso_lasso_avg"
+    - "pelasso_lasso_eridge"
+    - "pelasso_lasso_elasso"
+    - "fit_lasso"
+    - "fit_ridge"
+    - "fit_elasso"
+    - "fit_eridge"
+    - "cv_loo_bandwidth"
+    - "cv_loo_bandwidth_2step"
+  expected_console_output:
+    method: "<name>"
+    rmse: "<value>"
+    benchmark_rmse: "<simple average RMSE>"
+    relative_rmse: "<ratio>"
+  benchmark_rmse_search_sample: 1.504
+
+# ==============================================================================
+# INITIAL EDITABLE-SCRIPT INPUTS: DATA IN train.R / train.py AT tau_0
+# ==============================================================================
+train_script_initial_data:
+  manuscript_filename: "train.R"
+  python_port_filename: "train.py"  # Python port placeholder; unspecified in manuscript
+  editable_by_agent: true
+  only_editable_file: true
+  required_function_name: "select_lambda"
+  required_function_input: "info"
+  required_return_contract_manuscript: "list(forecast, method)"
+  required_return_contract_python_port: "{'forecast': ..., 'method': ...}"  # Python port placeholder; unspecified in manuscript
+  initial_method_name: "simple average"
+  initial_method_role: "baseline tau_0"
+  baseline_forecast_definition: "equal-weight average of the 23 current-period forecasts"
+  baseline_forecast_equation: "y_hat_t = (1/K) * sum_{k=1}^K x_{k,t}"
+  baseline_expected_search_rmse: 1.504
+  baseline_expected_relative_rmse: 1.000
+  exact_initial_file_contents_available_in_manuscript: false  # unspecified in manuscript
+  exact_initial_file_contents_note: "The manuscript identifies tau_0 as the simple average benchmark but does not print the full train.R source verbatim."
+
+# ==============================================================================
+# LLM-FACING PROMPT ARTIFACTS: DATA IN program.md AND RELATED PROMPTS
+# ==============================================================================
+program_md_data:
+  filename: "program.md"
+  is_primary_instruction_contract: true
+  verbatim_contract_text: |
+    # autoresearch — PE Lasso lambda selection
+    
+    ## Goal
+    
+    Find the best look-ahead-free, data-based lambda selection algorithm
+    for PE Lasso forecast combination.
+    
+    PE Lasso forecast combination we mean partially egalitary lasso method
+    in the paper /original_paper/DiebodShinEgalitarianLasso.md
+    (both one-step conceptualization and two-step implementation).
+    For both cases, we have two regularization parameters.
+    
+    IMPORTANT: Focus on two-step implementation of PE Lasso. Do not try
+    to combine with other methods. I want to focus on finding a way to
+    choose these regularization parameters for PE Lasso so that it becomes
+    tuning free method. We could try bunch of different CV methods. Or,
+    other data adaptive method automatically selects these tuning
+    parameters. We understand it is difficult problem finding two
+    regularization parameters from two different stages. But, this is
+    exactly why we want to run this experiments.
+    
+    The simple average benchmark has RMSE ~1.50. The ex-post oracle
+    (which cheats by using future data) achieves ~1.40. Your job is to
+    close that gap.
+    
+    You decide what strategies to explore. The reference implementation
+    is in `original_program/R/` — read it for ideas.
+    
+    ## Setup
+    
+    1. Agree on a run tag with the user: propose a tag based on today's
+       date (e.g. `mar11`). The branch `autoresearch/<tag>` must not
+       already exist.
+    2. Create the branch: `git checkout -b autoresearch/<tag>`
+    3. Read the in-scope files:
+       - `program.md` — this file (your instructions)
+       - `prepare.R` — fixed evaluation harness. Do not modify.
+       - `train.R` — the file you modify. Defines `select_lambda(info)`.
+    4. Check session history: Read `results.tsv` and `git log` to
+       understand what has been tried before. This is your memory across
+       sessions.
+    5. Initialize results.tsv if it doesn't exist: create it with just
+       the header row.
+    6. Confirm and go.
+    
+    ## The rules
+    
+    - One file: You only edit `train.R`. It must define
+      `select_lambda(info)` returning `list(forecast, method)`.
+    - No lookahead: At time t, only data from 1:(t-1) is available.
+      The `info` object enforces this.
+    - No new packages: Only glmnet, forecast, and base R.
+    - Runtime: Each full run (66 evaluation periods) should complete
+      in under 30 minutes.
+    - Deterministic: Use a fixed seed if randomness is needed.
+    
+    ## What's in `info`
+    
+      info$X_train      # rolling window training forecasts [max(1,t-w):(t-1), 23]
+      info$y_train      # corresponding actuals
+      info$X_history    # full history [1:(t-1), 23]
+      info$y_history    # full history actuals
+      info$x_new        # current period forecasts [23]
+      info$lambda_grid  # 200-point lambda grid, exp(15) to exp(-15)
+      info$lambda_grid2 # same grid (for two-step methods)
+      info$t            # current time index
+      info$w            # window size (20)
+    
+    All functions from `prepare.R` are in scope: `pelasso_lasso_avg()`,
+    `pelasso_lasso_eridge()`, `pelasso_lasso_elasso()`, `fit_lasso()`,
+    `fit_ridge()`, `fit_elasso()`, `fit_eridge()`,
+    `cv_loo_bandwidth()`, `cv_loo_bandwidth_2step()`, etc.
+    
+    ## Benchmarks
+    
+    | Method                               | RMSE  | Notes                      |
+    |--------------------------------------|-------|----------------------------|
+    | Simple average                       | ~1.50 | Baseline (no lambda)       |
+    | Ex-post optimal peLASSO(LASSO, Avg)  | ~1.40 | Oracle — uses future data  |
+    | Good data-based method               | 1.42-1.48 | Realistic target range |
+    
+    ## Output format
+    
+    The script prints:
+    
+      ---
+      method:         <name>
+      rmse:           <value>
+      benchmark_rmse: <simple average RMSE>
+      relative_rmse:  <ratio>
+    
+    Extract the key metric: `grep "^rmse:" run.log`
+    
+    ## Logging results
+    
+    Log every experiment to `results.tsv` (tab-separated).
+    Do NOT commit this file.
+    
+      commit   rmse    status   description
+      a1b2c3d  1.5012  keep     baseline simple average
+      b2c3d4e  1.4723  keep     LOO CV for pelasso_lasso_avg
+      c3d4e5f  1.4891  discard  BIC-based lambda selection
+      d4e5f6g  0.0000  crash    2D CV OOM on full grid
+    
+    ## Session recovery
+    
+    You may be starting a fresh session after a previous one was
+    interrupted (context limit, crash, etc.). On every session start:
+    
+    1. Read `results.tsv` and `git log --oneline` to see what has
+       been tried.
+    2. Reconcile state: Compare the last `results.tsv` entry to
+       the latest git commit.
+       - If the latest commit is NOT in `results.tsv`, it was never
+         evaluated. Run it now and log the result before moving on.
+       - If `train.R` has uncommitted changes, they are leftover from
+         an interrupted edit. Review and either commit or discard.
+    3. Identify the current best RMSE from `results.tsv` (the lowest
+       `rmse` with status `keep`).
+    4. Continue experimenting from there.
+    
+    ## The experiment loop
+    
+    LOOP (until experiment budget is exhausted or interrupted):
+    
+    1.  Read the current state: `train.R`, `results.tsv`, git log
+    2.  Edit `train.R` with a new lambda selection strategy
+    3.  `git commit -m "descriptive message"`
+    4.  Run: `Rscript prepare.R > run.log 2>&1`
+    5.  Extract: `grep "^rmse:" run.log`
+    6.  If empty (crash): `tail -n 50 run.log` to diagnose
+    7.  Log to `results.tsv`
+    8.  If RMSE improved -> keep the commit
+    9.  If RMSE worse -> `git reset --hard HEAD~1`
+    10. Repeat
+    
+    Logging is step 7, BEFORE the keep/revert decision in steps 8-9.
+    This ensures every experiment is recorded even if the session is
+    interrupted right after.
+    
+    Timeout: If a run exceeds 30 minutes, kill it and treat as crash.
+    
+    Crashes: Fix trivial bugs (typos, off-by-one). If the idea is
+    fundamentally broken, log crash and move on.
+    
+    NEVER STOP: Do not pause to ask if you should continue. Run
+    autonomously until your experiment budget runs out or you are
+    manually interrupted. If you run out of ideas, re-read
+    `original_program/R/` for new angles, try combining previous
+    near-misses, or try more radical approaches.
+  fresh_session_trigger_prompt: "Implement `program.md`."  # implied by manuscript; not quoted verbatim
+  session_restart_budget_sentence: "You have a budget of {K_remaining} more experiments. Stop after that."
+  session_restart_recovery_instruction: "Read `results.tsv` and `git log --oneline` to recover state."  # implied by manuscript; not quoted verbatim
+
+# ==============================================================================
+# RESULTS LOG INPUTS
+# ==============================================================================
+results_log_data:
+  filename: "results.tsv"
+  committed_to_git: false
+  columns:
+    commit: "String (git hash)"
+    rmse: "Float64"
+    status: "String in {keep, discard, crash}"
+    description: "String"
+  formal_status_set:
+    - "keep"
+    - "discard"
+    - "crash"
+  formal_crash_score: "+infinity"
+  implementation_note_for_some_logs: "crash rows may appear as 0.0000 in the TSV but are excluded from score comparisons"
+
+# ==============================================================================
+# ECONOMETRIC SETUP AND BENCHMARK TARGETS
+# ==============================================================================
+econometric_setup:
+  problem_statement: "real-time look-ahead-free tuning of peLASSO forecast combination"
+  K_forecasters: 23
+  rolling_window_W: 20
+  allowed_packages_in_editable_script:
+    - "glmnet"
+    - "forecast"
+    - "base R"
+  simple_average_baseline:
+    search_sample_rmse: 1.504
+    holdout_rmse: 2.979
+    holdout_ex_covid_rmse: 1.120
+  benchmark_targets:
+    search_sample:
+      peLASSO_ex_post_original_rmse: 1.400
+      peLASSO_ex_post_per_window_rmse: 1.400
+      best_avg_flex_rmse: 1.435
+      best_NW_avg_rmse: 1.378
+    holdout:
+      peLASSO_ex_post_original_rmse: 3.172
+      peLASSO_ex_post_per_window_rmse: 2.964
+      best_avg_flex_rmse: 2.901
+      best_NW_avg_rmse: 2.901
+    holdout_ex_covid:
+      peLASSO_ex_post_original_rmse: 1.360
+      peLASSO_ex_post_per_window_rmse: 1.075
+      best_avg_flex_rmse: 1.043
+      best_NW_avg_rmse: 1.142
+  predictive_accuracy_testing:
+    test_name: "Diebold-Mariano"
+    alternative: "superior predictive accuracy relative to simple average"
+    p_value_sidedness: "one-sided"
+    small_sample_approximation: "EWC fixed-b approximation"
+    reference: "Shin and Schor (2026)"
+    descriptive_only: true
+    bandwidth_choice: null  # unspecified in manuscript
+
+# ==============================================================================
+# RESEARCHER-ONLY HOLDOUT INPUTS (NOT AGENT-VISIBLE DURING DISCOVERY)
+# ==============================================================================
+researcher_only_holdout_inputs:
+  visibility: "researcher-only; keep outside agent workspace during search"
+  holdout_period:
+    - "2017Q1"
+    - "2025Q4"
+  holdout_quarters: 36
+  holdout_excluding_covid_quarters: 32
+  covid_quarters:
+    - "2020Q1"
+    - "2020Q2"
+    - "2020Q3"
+    - "2020Q4"
+  holdout_primary_targets:
+    run_1_final_relative_rmse: 0.945
+    run_2_final_relative_rmse: 0.811
+    run_3_final_relative_rmse: 1.089
+  holdout_ex_covid_primary_targets:
+    run_1_final_relative_rmse: 0.861
+    run_2_final_relative_rmse: 0.739
+    run_3_final_relative_rmse: 1.165
+
+# ==============================================================================
+# POST-SEARCH REPLICATION REGISTRY
+# NOTE: NOT DISCOVERY-VISIBLE. THESE ARE RESEARCHER-SIDE METHOD REGISTRIES
+# USED TO RECREATE THE REPORTED FINAL AND INTERMEDIATE METHODS.
+# ==============================================================================
+post_search_replication_registry:
+  visibility: "researcher-only; do not expose during autonomous discovery"
+  run_1_family:
+    final:
+      name: "Run 1 (final): stability selection with performance weighted aggregation"
+      elastic_net_alpha: 0.65
+      cv_folds: 5
+      lambda_rule: "largest lambda within 1.5 standard errors of minimum CV error"
+      stability_window_delta: 0.25
+      selection_frequency_threshold: 0.4
+      recent_observations_for_rmse_m: 2
+      performance_weight_exponent_p: 14
+      dominance_ratio_threshold: 5.0
+      aggregation_quantile_q: 0.44
+      holdout_relative_rmse: 0.945
+    run_1a:
+      name: "Run 1a (ENet, median)"
+      elastic_net_alpha: 0.65
+      cv_folds: 5
+      lambda_rule: "lambda_1se"
+      aggregation: "median of selected forecasters"
+      holdout_relative_rmse: 1.004
+    run_1b:
+      name: "Run 1b (peLASSO, CV)"
+      lambda_rule: "lambda_1se"
+      aggregation: "equal-weight average of selected forecasters"
+      holdout_relative_rmse: 1.027
+  run_2_family:
+    final:
+      name: "Run 2 (final): temporally weighted ranking with adaptive window selection and bias correction"
+      temporal_decay_alpha: 6.0
+      subset_size_candidates:
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+        - 10
+        - 11
+        - 12
+        - 13
+        - 14
+        - 15
+        - 16
+        - 17
+        - 18
+      adaptive_window_candidates:
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+        - 10
+        - 11
+        - 12
+        - 13
+        - 14
+        - 15
+        - 16
+        - 17
+        - 18
+        - 19
+      ranking_metric: "temporally weighted MAE"
+      loo_reranking_metric: "RMSE on remaining n-1 observations"
+      subset_weight_rule: "weights proportional to MAE^{-3}"
+      base_aggregation: "median of top N* forecasters"
+      bias_correction_gamma: 0.80
+      bias_correction_error_source: "most recent percentile-based LOO error"
+      holdout_relative_rmse: 0.811
+    run_2a:
+      name: "Run 2a (no bias correction)"
+      same_as_run_2_final_except: "omit bias correction"
+      holdout_relative_rmse: 0.990
+    run_2b:
+      name: "Run 2b (weighted avg)"
+      temporal_decay_alpha: 6.0
+      window_selection: "fixed window; no adaptive window"
+      subset_selection_criterion: "LOO RMSE(N) + 0.01 * log(N + 1)"
+      aggregation: "weighted average of top N* forecasters"
+      weights: "proportional to MAE^{-3}"
+      holdout_relative_rmse: 0.980
+  run_3_family:
+    final:
+      name: "Run 3 (final): adaptive LASSO with multi-horizon forward CV, model averaging, and egalitarian elastic net ensemble"
+      pilot_elastic_net_alpha: 0.1
+      penalty_epsilon: 0.005
+      forward_cv_horizon_weights:
+        h1: 0.05
+        h2: 0.95
+      forward_cv_fold_decay_gamma: 0.75
+      candidate_cv_aggregation_rules:
+        - "simple average"
+        - "0.7 * mean + 0.3 * ridge-weighted mean"
+      model_averaging_threshold_fraction: 0.01
+      model_averaging_weight_rule: "inverse RMSE"
+      egalitarian_elastic_net_alpha: 0.5
+      egalitarian_lambda_rule: "lambda_min"
+      final_blend_ratio:
+        PE: 0.70
+        eEN: 0.30
+      holdout_relative_rmse: 1.089
+    run_3a:
+      name: "Run 3a (h=1, no blend)"
+      pilot_elastic_net_alpha: 0.1
+      forward_cv_horizons:
+        - 1
+      forward_cv_fold_decay_gamma: 0.75
+      model_averaging: false
+      egalitarian_blend: false
+      holdout_relative_rmse: 1.005
+    run_3b:
+      name: "Run 3b (h=2, no blend)"
+      pilot_elastic_net_alpha: 0.1
+      penalty_epsilon: 0.001
+      forward_cv_horizons:
+        - 1
+        - 2
+      forward_cv_fold_decay_gamma: 0.80
+      model_averaging: true
+      egalitarian_blend: false
+      holdout_relative_rmse: 1.020
+
+# ==============================================================================
+# METHOD NOTES AND GUARDRAILS
+# ==============================================================================
+method_notes:
+  - "The post-search holdout evaluation is a researcher action and is not part of the autonomous loop."
+  - "The holdout sample must remain outside the agent workspace during discovery."
+  - "The agent may drift from nominal lambda tuning into broader method discovery; the protocol logs that drift rather than preventing it."
+  - "The finite-search solution tau_hat_K need not equal the global optimum tau_star."
+  - "Logging must occur before keep/revert so that failed experiments remain auditable."
+  - "prepare.R is immutable; train.R is the sole editable surface."
+  - "For exact search-sample reproduction, use the original H1_gdp.csv values for 1999Q3-2016Q4."
+  - "For holdout and independent-dataset replication, document the Eurostat GDP vintage explicitly."
+  - "No neural-network training configuration belongs in this empirical-study input specification."

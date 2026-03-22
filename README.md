@@ -90,7 +90,7 @@ Out-of-sample generalization is evaluated using the Diebold-Mariano test, utiliz
 Below is a diagram which summarizes the proposed approach:
 
 <div align="center">
-  <img src="https://github.com/chirindaopensource/auditable_AI_agent_loop_for_empirical_economics/blob/main/auditable_AI_agent_loop_for_empirical_economics_ipo_main.png" alt="Auditable AI Agent Loop Architecture" width="100%">
+  <img src="https://github.com/chirindaopensource/auditable_AI_agent_loop_for_empirical_economics/blob/main/auditable_AI_agent_loop_for_empirical_economics_ipo_main_two.png" alt="Auditable AI Agent Loop Architecture" width="100%">
 </div>
 
 ## Features

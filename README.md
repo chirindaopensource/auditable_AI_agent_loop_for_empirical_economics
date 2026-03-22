@@ -25,7 +25,7 @@
 [![Jupyter](https://img.shields.io/badge/Jupyter-%23F37626.svg?style=flat&logo=Jupyter&logoColor=white)](https://jupyter.org/)
 [![Open Source](https://img.shields.io/badge/Open%20Source-%E2%9D%A4-brightgreen)](https://github.com/auditable_AI_agent_loop_for_empirical_economics)
 
-**Repository:** `https://github.com/auditable_AI_agent_loop_for_empirical_economics`
+**Repository:** `https://github.com/chirindaopensource/auditable_AI_agent_loop_for_empirical_economics`
 
 **Owner:** 2026 Craig Chirinda (Open Source Projects)
 
@@ -135,7 +135,7 @@ The project is designed around a single, top-level user-facing interface functio
 
 1.  **Clone the repository:**
     ```sh
-    git clone https://github.com/auditable_AI_agent_loop_for_empirical_economics.git
+    git clone https://github.com/chirindaopensource/auditable_AI_agent_loop_for_empirical_economics.git
     cd auditable_AI_agent_loop_for_empirical_economics
     ```
 
@@ -261,7 +261,7 @@ If you use this code or the methodology in your research, please cite the origin
 For the implementation itself, you may cite this repository:
 ```
 Chirinda, C. (2026). An Auditable AI Agent Loop for Empirical Economics: An Open Source Implementation.
-GitHub repository: https://github.com/auditable_AI_agent_loop_for_empirical_economics
+GitHub repository: https://github.com/chirindaopensource/auditable_AI_agent_loop_for_empirical_economics
 ```
 
 ## Acknowledgments
